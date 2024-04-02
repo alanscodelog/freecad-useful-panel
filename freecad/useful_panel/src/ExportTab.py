@@ -15,7 +15,7 @@ from PySide import QtCore, QtGui
 from .utils import get_all_objects
 from pathlib import Path
 
-custom_name_regex = re.compile("Export\\((.*)\\)")
+custom_params_regex = re.compile("Export(?:\\((.*?)\\))?(?:@\\(\s*?([0-9.]+)\s*?,\s*?([0-9,]+)\\s*?\\))?")
 class ExportTab(QtGui.QWidget):
 
 	def __init__(self):
@@ -101,18 +101,31 @@ class ExportTab(QtGui.QWidget):
 					cannot_export.append(obj)
 		App.ActiveDocument.recompute()
 		for doc, obj in objects:
+			params_surface_deviation = None 
+			params_angular_deviation = None
 			if "Export" in obj.Label2 or "export" in obj.Label2:
 				export_type = mesh_export_type 
 				is_already_mesh =  isinstance(obj, Mesh.Feature)
 				is_sketch = obj.isDerivedFrom("Sketcher::SketchObject")
 				if is_sketch:
 					export_type = "svg"
-				custom_name = custom_name_regex.match(obj.Label2)
-				if custom_name:
-					if (custom_name.group(1)[0] == "="):
-						obj_name = custom_name.group(1)[1:]
+
+				custom = custom_params_regex.match(obj.Label2)
+				if custom.group(2) and custom.group(3):
+					try:
+						params_surface_deviation = float(custom.group(2))
+						params_angular_deviation = float(custom.group(3))
+					except ValueError:
+						print(obj.Label + ": Could not export, error parsing custom params as floats: " +  custom.group(2)+ " and " + custom.group(3))
+						continue
+
+				name = None
+				if custom.group(1):
+					name = custom.group(1)
+					if (name[0] == "="):
+						obj_name = name[1:]
 					else: 
-						suffix = "-" + custom_name.group(1)
+						suffix = "-" + name
 						obj_name = doc + "-" + obj.Label + suffix
 				else:
 					obj_name = doc + "-" + obj.Label
@@ -134,13 +147,20 @@ class ExportTab(QtGui.QWidget):
 					elif (is_stl_export):
 						mesh = App.getDocument(doc).addObject("Mesh::Feature", "Mesh") # type: ignore
 						shape = Part.getShape(obj)
-						mesh.Mesh = MeshPart.meshFromShape(Shape=shape, LinearDeflection=surface_deviation, AngularDeflection=angular_deviation, Relative=True)
+						mesh.Mesh = MeshPart.meshFromShape(
+							Shape=shape,
+							LinearDeflection=params_surface_deviation or surface_deviation,
+							AngularDeflection=params_angular_deviation or angular_deviation,
+							Relative=True
+						)
 						Mesh.export([mesh], filename)
 						App.ActiveDocument.removeObject(mesh.Name)
 					else:
 						ImportGui.export([obj], filename)
 
 					print("Exported: " + filename)
+					if (params_surface_deviation or params_angular_deviation):
+						print("\twith overriden params: SurfaceDeviation: " + str(params_surface_deviation) + " AngularDeviation: " + str(params_angular_deviation))	
 				except Exception as e:
 					print("Failed to export: " + obj_name)
 					print(e)

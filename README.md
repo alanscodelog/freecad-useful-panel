@@ -19,7 +19,10 @@ https://user-images.githubusercontent.com/26168490/190905158-77e2890d-12f2-4be0-
 - Provides a way to export all "marked" objects. Marking is done by including the word "Export" in the part's `Label2` property.
 	- Path are relative to each file by default but can be made relative to just the active file. Parts are named `{file name}-{object name}-{optional suffix}.{extension}`.
 		- ![](./freecad/useful_panel/resources/Screenshot-ExportSuffix.png)
-		- Optional suffix can be set by doing `Export(your suffix here)`, this can be a version number or some other information. You can even use [expressions](https://wiki.freecadweb.org/Expressions#String_concatenation) to set the value. Note you will have to click the expression icon, the `=` shortcut doesn't work here.
+		- There's also a few ways to customize the the name (to add version or other information) and you can even use [expressions](https://wiki.freecadweb.org/Expressions#String_concatenation) to set the value. Note you will have to click the expression icon, the `=` shortcut doesn't work here.
+			- `Export(your suffix here)`
+			- `Export(=completely custom name)` => `completely custom name.extension`
+			- `Export@({surface_deviation},{angular_deviation})` Use @ to provide custom parameters use use for mesh generation (both params must be passed). For example `Export(...)@(1.0,10)` or `Export@(1.0,10)`. Useful for when certain object need custom parameters to avoid slow exports or crashes.
 	- You can check the report view to see where objects were saved.
 	- **The file is always overwritten if it exists.**
 
