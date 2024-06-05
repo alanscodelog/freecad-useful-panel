@@ -25,7 +25,13 @@ def get_all_objects(search_global):
 	return objects
 
 
-def search_for_expressions(w_spreadsheet, search_global, callback=None):
+def search_for_expressions(
+	w_spreadsheet,
+	w_spreadsheet_expressions,
+	w_spreadsheet_aliases,
+	search_global,
+	callback=None
+):
 	if callback is None:
 		return  # should never happen
 	objects = get_all_objects(search_global)
@@ -33,10 +39,17 @@ def search_for_expressions(w_spreadsheet, search_global, callback=None):
 	for doc, o in objects:
 		if hasattr(o, "ExpressionEngine"):
 			for exp in o.ExpressionEngine:
-				callback(i, doc, o, exp[0], exp[1])
-		if o.TypeId == "Spreadsheet::Sheet" and w_spreadsheet:
+				callback(i, doc, o, exp[0], exp[1], "doc")
+		if o.TypeId == "Spreadsheet::Sheet":
 			for cell in filter(cell_regex.search, o.PropertiesList):
 				contents=o.getContents(cell)
-				if contents.startswith("="):
-					callback(i, doc, o, cell, contents)
+				if w_spreadsheet_expressions and contents.startswith("="):
+					callback(i, doc, o, cell, contents, "cell-exp")
+				elif w_spreadsheet:
+					callback(i, doc, o, cell, contents, "cell")
+				
+				if w_spreadsheet_aliases:
+					alias = o.getAlias(cell)
+					if alias:
+						callback(i, doc, o, cell+"(alias)", alias, "cell-alias")
 		i += 1

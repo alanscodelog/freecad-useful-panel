@@ -20,12 +20,12 @@ class SearchTab(QtGui.QWidget):
 		search_term = QtGui.QLineEdit("")
 		self.search_term = search_term
 		search_layout.addRow("Search for Alias", search_term) # type: ignore
-		search_term.textChanged.connect(self.search_alias)
+		search_term.textChanged.connect(self.search)
 
 		replace_term = QtGui.QLineEdit("")
 		self.replace_term = replace_term
 		search_layout.addRow("Replace Alias With", replace_term) # type: ignore
-		replace_term.textChanged.connect(self.search_alias)
+		replace_term.textChanged.connect(self.search)
 
 		# OPTIONS
 		search_options_layout = QtGui.QGridLayout(self)
@@ -36,18 +36,35 @@ class SearchTab(QtGui.QWidget):
 		self.search_globally = search_globally
 		search_options_layout.addWidget(search_globally, 0, 0)  # type: ignore
 		search_globally.setChecked(True)
-		search_globally.stateChanged.connect(self.search_alias)
-
-		include_spreadsheets = QtGui.QCheckBox("Include Spreadsheets")
-		self.include_spreadsheets = include_spreadsheets
-		search_options_layout.addWidget(include_spreadsheets, 0, 1)  # type: ignore
-		include_spreadsheets.setChecked(True)
-		include_spreadsheets.stateChanged.connect(self.search_alias)
+		search_globally.stateChanged.connect(self.search)
 
 		focus_object_on_sel = QtGui.QCheckBox("Focus Object on Selection")
 		self.focus_object_on_sel = focus_object_on_sel
-		search_options_layout.addWidget(focus_object_on_sel, 1, 1)  # type: ignore
+		search_options_layout.addWidget(focus_object_on_sel, 1, 0)  # type: ignore
 		focus_object_on_sel.setChecked(True)
+
+		include_spreadsheets = QtGui.QCheckBox("Include Spreadsheet Cells")
+		include_spreadsheets.setToolTip("Include spreadsheet cells (only regular cells, not expression cells)")
+		self.include_spreadsheets = include_spreadsheets
+		search_options_layout.addWidget(include_spreadsheets, 0, 1)  # type: ignore
+		include_spreadsheets.setChecked(True)
+		include_spreadsheets.stateChanged.connect(self.search)
+
+		include_spreadsheet_expressions = QtGui.QCheckBox("Include Spreadsheet Expressions")
+		include_spreadsheet_expressions.setToolTip("Include spreadsheet cells with expressions (start with `=`).")
+		include_spreadsheet_expressions.setChecked(True)
+		self.include_spreadsheet_expressions = include_spreadsheet_expressions
+		search_options_layout.addWidget(include_spreadsheet_expressions, 1, 1)  # type: ignore				
+		include_spreadsheet_expressions.stateChanged.connect(self.search)	
+
+
+		include_spreadsheet_aliases = QtGui.QCheckBox("Include Spreadsheet Aliases")
+		include_spreadsheet_aliases.setToolTip("Include spreadsheet aliases.")
+		include_spreadsheet_aliases.setChecked(True)
+		self.include_spreadsheet_aliases = include_spreadsheet_aliases
+		search_options_layout.addWidget(include_spreadsheet_aliases, 2, 1)  # type: ignore
+		include_spreadsheet_aliases.stateChanged.connect(search_for_expressions)
+		
 
 		# BUTTONS
 		search_buttons_layout = QtGui.QHBoxLayout(self)
@@ -66,7 +83,7 @@ class SearchTab(QtGui.QWidget):
 		replace_button = QtGui.QPushButton("Replace")
 		self.replace_button = replace_button
 		search_buttons_layout.addWidget(replace_button)
-		replace_button.clicked.connect(self.replace_alias)
+		replace_button.clicked.connect(self.replace)
 
 		search_layout.addRow(search_buttons_layout)
 
@@ -94,8 +111,16 @@ class SearchTab(QtGui.QWidget):
 
 	def search_for_expressions(self, callback =None):
 		w_spreadsheet = self.include_spreadsheets.checkState()
+		w_spreadsheet_expressions = self.include_spreadsheet_expressions.checkState()
+		w_spreadsheet_aliases = self.include_spreadsheet_aliases.checkState()
 		search_global = self.search_globally.checkState()
-		search_for_expressions(w_spreadsheet, search_global, callback)
+		search_for_expressions(
+			w_spreadsheet,
+			w_spreadsheet_expressions,
+			w_spreadsheet_aliases,
+			search_global,
+			callback
+		)
 
 	def check_all(self):
 		replacement=self.replace_term.text()
@@ -113,27 +138,32 @@ class SearchTab(QtGui.QWidget):
 				cell=self.results_table.cellWidget(i, 0)
 				cell.setChecked(False)
 
-	def replace_alias(self):
+	def replace(self):
 		name=self.search_term.text()
 		replacement=self.replace_term.text()
-		def search(i, doc, o, prop, exp):
+		def search(i, doc, o, prop, exp, type):
 			cell=self.results_table.cellWidget(i, 0)
 			if cell.isChecked() == False:
 				return
 			if name in exp:
 				new_expression=exp.replace(name, replacement)
+				print(prop, name, exp, new_expression)
 				if o.TypeId == "Spreadsheet::Sheet":
-					o.set(prop, new_expression)
+					cell = prop
+					if type == "cell-alias":
+						o.setAlias(cell[0: -len("(alias)")], new_expression)
+					if type == "cell-exp" or type == "cell":
+						o.set(cell, new_expression)
 				else:
 					o.setExpression(prop, new_expression)
 
 		for i, entry in enumerate(self.results):
-			[doc, o, prop, exp]=entry
-			search(i, doc, o, prop, exp)
+			[doc, o, prop, exp, type]=entry
+			search(i, doc, o, prop, exp, type)
 
-		self.search_alias()  # refresh
+		self.search()  # refresh
 
-	def search_alias(self):
+	def search(self):
 		name=self.search_term.text()
 		replacement=self.replace_term.text()
 		search_global=self.search_globally.checkState()
@@ -141,9 +171,9 @@ class SearchTab(QtGui.QWidget):
 		show_replace=len(replacement) > 0
 
 		self.results=[]
-		def search(i, doc, o, prop, exp):
+		def search(i, doc, o, prop, exp, type):
 			if name in exp:
-				self.results.append([doc, o, prop, exp])
+				self.results.append([doc, o, prop, exp, type])
 				item=[o.Label, prop, exp]
 				if search_global:
 					item.insert(0, doc)
