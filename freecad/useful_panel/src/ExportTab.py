@@ -110,7 +110,7 @@ class ExportTab(QtGui.QWidget):
 				if is_sketch:
 					export_type = "svg"
 
-				custom = custom_params_regex.match(obj.Label2)
+				custom = custom_params_regex.search(obj.Label2)
 				if custom.group(2) and custom.group(3):
 					try:
 						params_surface_deviation = float(custom.group(2))
