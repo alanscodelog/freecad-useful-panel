@@ -106,9 +106,12 @@ class SelectionInfo(QtGui.QWidget):
 							# we cannot use sel.getSubObjects because the coordinates of the selections might not be global (i.e. part design selection, links, etc)
 							# getGlobalPlacement cand be used for most cases, but is not reliable for links
 							# this seems to get a subobject with global coordinates every time.
-							obj = sel.Object.getSubObject(path, 0)
-							if obj is None or obj.Length is None or obj.BoundBox is None:
-								# print(obj, "why is this none", path, sel.SubElementNames, sel)
+							try:
+								obj = sel.Object.getSubObject(path, 0)
+								if obj is None or obj.Length is None or obj.BoundBox is None:
+									continue
+							except RuntimeError:
+								# shape is invalid, skip it
 								continue
 							if hasattr(obj, "Curve") and hasattr(obj.Curve, "Radius"):
 								found_radius = obj.Curve.Radius
@@ -135,7 +138,7 @@ class SelectionInfo(QtGui.QWidget):
 				diameter = None
 				if sel_count == 1 and found_radius:
 					diameter = round_to(found_radius * 2)
-				if sel_count == 2:
+				if len(selections) == 2:
 					sel1 = selections[0].BoundBox
 					sel2 = selections[1].BoundBox
 					p1 = sel1.Center
@@ -154,8 +157,8 @@ class SelectionInfo(QtGui.QWidget):
 					zmax_distance = round_to(abs(sel1.ZMax - sel2.ZMax))
 
 					distances = (distance, x_distance, y_distance, z_distance,
-									xmin_distance, ymin_distance, zmin_distance,
-									xmax_distance, ymax_distance, zmax_distance)
+								xmin_distance, ymin_distance, zmin_distance,
+								xmax_distance, ymax_distance, zmax_distance)
 
 
 				sum = round_to(sum)
